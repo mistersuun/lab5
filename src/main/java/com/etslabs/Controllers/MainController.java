@@ -1,7 +1,12 @@
 package com.etslabs.Controllers;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 
+import com.etslabs.AppState;
 import com.etslabs.Models.ImageModel;
 import com.etslabs.Models.Perspective;
 
@@ -172,10 +177,30 @@ public class MainController {
     }
 
     private void saveState() {
-        System.out.println("Save state called.");
+        AppState appState = new AppState(
+            perspective.getScaleFactor(),
+            perspective.getTranslation().getX(),
+            perspective.getTranslation().getY(),
+            perspective.getTranslation()
+        );
+        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream("app_state.ser"))) {
+            oos.writeObject(appState);
+            System.out.println("State saved successfully.");
+        } catch (Exception e) {
+            System.out.println("Failed to save state: " + e.getMessage());
+        }
     }
 
     private void loadState() {
-        System.out.println("Load state called.");
+        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream("app_state.ser"))) {
+            AppState appState = (AppState) ois.readObject();
+            perspective.setScaleFactor(appState.getScaleFactor());
+            perspective.setTranslation(appState.getTranslation());
+            perspectiveController.updateImage(perspective.getImageModel().getImage());
+            System.out.println("State loaded successfully.");
+        } catch (Exception e) {
+            System.out.println("Failed to load state: " + e.getMessage());
+        }
     }
+
 }
