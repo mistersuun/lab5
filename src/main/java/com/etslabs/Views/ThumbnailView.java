@@ -1,8 +1,8 @@
 package com.etslabs.Views;
 
-import com.etslabs.Converter.ImageConverter;
 import com.etslabs.Interfaces.Observer;
 import com.etslabs.Models.ImageModel;
+
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;

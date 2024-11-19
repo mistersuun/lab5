@@ -1,10 +1,12 @@
 package com.etslabs.Models;
 
-import javafx.scene.image.Image;
-import com.etslabs.Interfaces.Observer;
 import java.awt.Point;
 import java.util.ArrayList;
 import java.util.List;
+
+import com.etslabs.Interfaces.Observer;
+
+import javafx.scene.image.Image;
 
 public class Perspective {
     private double scaleFactor = 1.0;
@@ -14,6 +16,11 @@ public class Perspective {
 
     public Perspective(ImageModel imageModel) {
         this.imageModel = imageModel;
+        // Register as an observer to ImageModel to observe image changes
+        this.imageModel.addObserver(() -> {
+            System.out.println("Perspective: ImageModel changed, notifying observers.");
+            notifyObservers();
+        });
     }
 
     public double getScaleFactor() {
@@ -40,6 +47,12 @@ public class Perspective {
 
     public ImageModel getImageModel() {
         return imageModel;
+    }
+
+    // Add this method to set the image
+    public void setImage(Image image) {
+        imageModel.setImage(image);
+        // No need to call notifyObservers here because ImageModel already notifies, which triggers Perspective to notify
     }
 
     public void addObserver(Observer observer) {

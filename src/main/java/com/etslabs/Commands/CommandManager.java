@@ -21,7 +21,7 @@ public class CommandManager {
     public void executeCommand(Command command) {
         command.execute();
         undoStack.push(command);
-        redoStack.clear();
+        redoStack.clear(); // Clear redo stack when a new command is executed
     }
 
     public void undo() {
@@ -40,4 +40,3 @@ public class CommandManager {
         }
     }
 }
-
