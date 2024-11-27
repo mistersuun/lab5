@@ -56,6 +56,7 @@ public class ImageModel {
             System.out.println("Image loaded successfully: " + fxImage);
         } catch (Exception e) {
             System.out.println("Failed to load image: " + e.getMessage());
+            e.printStackTrace();
         }
     }    
 }

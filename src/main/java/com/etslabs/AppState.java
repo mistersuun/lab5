@@ -3,6 +3,9 @@ package com.etslabs;
 import java.awt.Point;
 import java.io.Serializable;
 
+/**
+ * Serializable class to represent the application's state for saving and loading.
+ */
 public class AppState implements Serializable {
     private static final long serialVersionUID = 1L;
     private double scaleFactor;

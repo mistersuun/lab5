@@ -3,13 +3,18 @@ package com.etslabs.Controllers;
 import com.etslabs.Commands.CommandManager;
 import com.etslabs.Commands.TranslateCommand;
 import com.etslabs.Commands.ZoomCommand;
+import com.etslabs.Interfaces.Command;
+import com.etslabs.Interfaces.Observer;
 import com.etslabs.Models.Perspective;
 
 import javafx.scene.image.ImageView;
 import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.StackPane;
 
-public class PerspectiveController {
+/**
+ * Controller for handling the Perspective view.
+ */
+public class PerspectiveController implements Observer {
     private final Perspective perspective;
     private final StackPane view;
     private final ImageView perspectiveView;
@@ -19,15 +24,24 @@ public class PerspectiveController {
     private double dragStartX, dragStartY;
     private final CommandManager commandManager = CommandManager.getInstance();
 
+    /**
+     * Constructor for PerspectiveController.
+     * @param perspective the Perspective to control
+     */
     public PerspectiveController(Perspective perspective) {
         this.perspective = perspective;
         this.view = new StackPane();
         this.perspectiveView = new ImageView();
         this.perspectiveView.setPreserveRatio(true); // Maintain image aspect ratio
         this.view.getChildren().add(perspectiveView);
+        this.perspective.addObserver(this); // Register as observer
         initialize();
     }
 
+    /**
+     * Get the view for the Perspective.
+     * @return the StackPane containing the Perspective view
+     */
     public StackPane getView() {
         return view;
     }
@@ -47,8 +61,9 @@ public class PerspectiveController {
             dragStartY = event.getSceneY();
 
             // Execute TranslateCommand to track the translation
-            TranslateCommand translateCommand = new TranslateCommand(perspective, offsetX, offsetY);
-            commandManager.executeCommand(translateCommand);
+            Command translateCommand = new TranslateCommand(perspective, offsetX, offsetY);
+            translateCommand.execute();
+            commandManager.addCommand(translateCommand);
 
             translateX += offsetX;
             translateY += offsetY;
@@ -68,8 +83,9 @@ public class PerspectiveController {
 
         // Execute ZoomCommand to track the zoom action
         double newScale = Math.max(0.1, Math.min(scale * zoomFactor, 5.0));
-        ZoomCommand zoomCommand = new ZoomCommand(perspective, newScale);
-        commandManager.executeCommand(zoomCommand);
+        Command zoomCommand = new ZoomCommand(perspective, newScale);
+        zoomCommand.execute();
+        commandManager.addCommand(zoomCommand);
 
         scale = newScale;
         perspectiveView.setScaleX(scale);
@@ -79,6 +95,23 @@ public class PerspectiveController {
     private void applyTranslation() {
         perspectiveView.setTranslateX(translateX);
         perspectiveView.setTranslateY(translateY);
+    }
+
+    /**
+     * Update the PerspectiveController based on changes in the Perspective.
+     */
+    @Override
+    public void update() {
+        // Update the view based on Perspective changes
+        scale = perspective.getScaleFactor();
+        translateX = perspective.getTranslation().getX();
+        translateY = perspective.getTranslation().getY();
+
+        perspectiveView.setScaleX(scale);
+        perspectiveView.setScaleY(scale);
+        perspectiveView.setTranslateX(translateX);
+        perspectiveView.setTranslateY(translateY);
+        perspectiveView.setImage(perspective.getTransformedImage());
     }
 
     public void updateImage(javafx.scene.image.Image image) {
@@ -96,5 +129,13 @@ public class PerspectiveController {
         perspectiveView.setScaleX(scale);
         perspectiveView.setScaleY(scale);
         applyTranslation();
+    }
+
+    public void undo() {
+        commandManager.undo();
+    }
+
+    public void redo() {
+        commandManager.redo();
     }
 }

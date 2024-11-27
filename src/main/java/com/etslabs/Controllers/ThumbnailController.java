@@ -1,6 +1,9 @@
 package com.etslabs.Controllers;
 
+import java.awt.Point;
+
 import com.etslabs.Commands.CommandManager;
+import com.etslabs.Commands.PasteCommand;
 import com.etslabs.Commands.TranslateCommand;
 import com.etslabs.Commands.ZoomCommand;
 import com.etslabs.Models.ImageModel;
@@ -11,6 +14,7 @@ import javafx.beans.property.ObjectProperty;
 import javafx.scene.control.Button;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.MenuItem;
+import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.HBox;
@@ -18,20 +22,23 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.shape.Rectangle;
 
+/**
+ * Controller for handling the Thumbnail view.
+ */
 public class ThumbnailController {
     private final ImageView thumbnailView = new ImageView();
     private final Perspective perspective; // Dedicated perspective for this thumbnail
     private final CommandManager commandManager = CommandManager.getInstance();
     private double dragStartX, dragStartY;
 
-    private final ObjectProperty<javafx.scene.image.Image> clipboardImage;
+    private final ObjectProperty<Image> clipboardImage;
     private final DoubleProperty clipboardScaleX;
     private final DoubleProperty clipboardScaleY;
     private final DoubleProperty clipboardTranslateX;
     private final DoubleProperty clipboardTranslateY;
 
     public ThumbnailController(ImageModel imageModel,
-                                ObjectProperty<javafx.scene.image.Image> clipboardImage,
+                                ObjectProperty<Image> clipboardImage,
                                 DoubleProperty clipboardScaleX, DoubleProperty clipboardScaleY,
                                 DoubleProperty clipboardTranslateX, DoubleProperty clipboardTranslateY) {
         this.clipboardImage = clipboardImage;
@@ -103,31 +110,32 @@ public class ThumbnailController {
             dragStartY = event.getSceneY();
             notifyActive(); // Set as active on mouse press
         });
-    
+
         thumbnailView.setOnMouseDragged(event -> {
             // Update visual feedback while dragging
             double offsetX = event.getSceneX() - dragStartX;
             double offsetY = event.getSceneY() - dragStartY;
-    
+
             thumbnailView.setTranslateX(thumbnailView.getTranslateX() + offsetX);
             thumbnailView.setTranslateY(thumbnailView.getTranslateY() + offsetY);
-    
+
             dragStartX = event.getSceneX();
             dragStartY = event.getSceneY();
         });
-    
+
         thumbnailView.setOnMouseReleased(event -> {
             // Commit the final position on drag release
             double offsetX = thumbnailView.getTranslateX();
             double offsetY = thumbnailView.getTranslateY();
-    
+
             TranslateCommand translateCommand = new TranslateCommand(perspective, offsetX, offsetY);
-            commandManager.executeCommand(translateCommand);
-    
+            translateCommand.execute();
+            commandManager.executeCommand(translateCommand); // Updated to use executeCommand
+
             applyPerspectiveToThumbnail(); // Update thumbnail to reflect the final state
             System.out.println("Drag completed. Final translation applied: X=" + offsetX + ", Y=" + offsetY);
         });
-    }    
+    }
 
     private void onScroll(ScrollEvent e) {
         double zoomFactor = e.getDeltaY() > 0 ? 1.1 : 0.9;
@@ -138,7 +146,7 @@ public class ThumbnailController {
     private void executeZoomCommand(double zoomFactor) {
         double newScaleFactor = Math.max(0.1, Math.min(perspective.getScaleFactor() * zoomFactor, 5.0));
         ZoomCommand zoomCommand = new ZoomCommand(perspective, newScaleFactor);
-        commandManager.executeCommand(zoomCommand);
+        commandManager.executeCommand(zoomCommand); // Updated to use executeCommand
         applyPerspectiveToThumbnail();
     }
 
@@ -164,13 +172,17 @@ public class ThumbnailController {
 
     private void handlePaste() {
         if (clipboardImage.get() != null) {
-            thumbnailView.setImage(clipboardImage.get());
-            perspective.setScaleFactor(clipboardScaleX.get());
-            perspective.setTranslation(new java.awt.Point(
+            Image pastedImage = clipboardImage.get();
+            double pastedScaleFactor = clipboardScaleX.get(); // Assuming uniform scaling
+            Point pastedTranslation = new Point(
                 (int) clipboardTranslateX.get(),
                 (int) clipboardTranslateY.get()
-            ));
+            );
+
+            PasteCommand pasteCommand = new PasteCommand(perspective, pastedImage, pastedScaleFactor, pastedTranslation);
+            commandManager.executeCommand(pasteCommand); // Updated to use executeCommand
             applyPerspectiveToThumbnail();
+
             System.out.println("Image and state pasted to thumbnail.");
         } else {
             System.out.println("Clipboard is empty.");
@@ -187,10 +199,10 @@ public class ThumbnailController {
         applyPerspectiveToThumbnail(); // Ensure the thumbnail reflects the redone state
     }
 
-    public void updateImage(javafx.scene.image.Image image) {
+    public void updateImage(Image image) {
         thumbnailView.setImage(image);
         perspective.setScaleFactor(1.0); // Reset zoom
-        perspective.setTranslation(new java.awt.Point(0, 0)); // Reset translation
+        perspective.setTranslation(new Point(0, 0)); // Reset translation
         applyPerspectiveToThumbnail();
     }
 

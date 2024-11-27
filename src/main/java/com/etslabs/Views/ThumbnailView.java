@@ -8,6 +8,9 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
 import javafx.scene.layout.Pane;
 
+/**
+ * View component for displaying image thumbnails.
+ */
 public class ThumbnailView extends Pane implements Observer {
     private final ImageModel imageModel;
     private final Canvas canvas;
@@ -20,11 +23,17 @@ public class ThumbnailView extends Pane implements Observer {
         getChildren().add(canvas);
     }
 
+    /**
+     * Update method called when the observed ImageModel changes.
+     */
     @Override
     public void update() {
         repaint();
     }
 
+    /**
+     * Repaint the thumbnail canvas based on the current image.
+     */
     private void repaint() {
         GraphicsContext gc = canvas.getGraphicsContext2D();
         gc.clearRect(0, 0, canvas.getWidth(), canvas.getHeight()); 

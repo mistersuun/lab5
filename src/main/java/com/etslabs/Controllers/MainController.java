@@ -95,7 +95,7 @@ public class MainController {
         SplitPane mainPane = new SplitPane();
         mainPane.setOrientation(Orientation.HORIZONTAL);
         mainPane.getItems().addAll(perspectivePanel, thumbnailContainer);
-        mainPane.setDividerPositions(0.2);
+        mainPane.setDividerPositions(0.7); // Adjusted divider position for better layout
 
         BorderPane root = new BorderPane();
         root.setTop(menuBar);
@@ -104,7 +104,7 @@ public class MainController {
         // Set up menu actions
         setupMenuActions(loadImage, saveState, loadState, removeImage, undo, redo);
 
-        return new Scene(root, 1000, 600);
+        return new Scene(root, 1200, 800); // Increased window size for better visibility
     }
 
     private ThumbnailController createThumbnailController(boolean isFirst) {
@@ -127,7 +127,7 @@ public class MainController {
     }
 
     private void setupMenuActions(MenuItem loadImage, MenuItem saveState, MenuItem loadState, MenuItem removeImage,
-                                   MenuItem undo, MenuItem redo) {
+                                  MenuItem undo, MenuItem redo) {
         loadImage.setOnAction(e -> loadImage());
         saveState.setOnAction(e -> saveState());
         loadState.setOnAction(e -> loadState());
@@ -181,13 +181,14 @@ public class MainController {
             perspective.getScaleFactor(),
             perspective.getTranslation().getX(),
             perspective.getTranslation().getY(),
-            perspective.getTranslation()
+            new java.awt.Point(perspective.getTranslation()) // Deep copy if needed
         );
         try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream("app_state.ser"))) {
             oos.writeObject(appState);
             System.out.println("State saved successfully.");
         } catch (Exception e) {
             System.out.println("Failed to save state: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -196,11 +197,11 @@ public class MainController {
             AppState appState = (AppState) ois.readObject();
             perspective.setScaleFactor(appState.getScaleFactor());
             perspective.setTranslation(appState.getTranslation());
-            perspectiveController.updateImage(perspective.getImageModel().getImage());
+            // The Observer pattern will automatically update the views
             System.out.println("State loaded successfully.");
         } catch (Exception e) {
             System.out.println("Failed to load state: " + e.getMessage());
+            e.printStackTrace();
         }
     }
-
 }
