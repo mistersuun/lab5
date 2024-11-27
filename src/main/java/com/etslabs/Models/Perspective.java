@@ -16,7 +16,6 @@ public class Perspective {
 
     public Perspective(ImageModel imageModel) {
         this.imageModel = imageModel;
-        // Register as an observer to ImageModel to observe image changes
         this.imageModel.addObserver(() -> {
             System.out.println("Perspective: ImageModel changed, notifying observers.");
             notifyObservers();
@@ -49,10 +48,8 @@ public class Perspective {
         return imageModel;
     }
 
-    // Add this method to set the image
     public void setImage(Image image) {
         imageModel.setImage(image);
-        // No need to call notifyObservers here because ImageModel already notifies, which triggers Perspective to notify
     }
 
     public void addObserver(Observer observer) {

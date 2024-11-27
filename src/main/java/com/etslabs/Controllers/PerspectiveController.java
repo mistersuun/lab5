@@ -10,10 +10,6 @@ import com.etslabs.Models.Perspective;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.StackPane;
-
-/**
- * Controller for handling the Perspective view.
- */
 public class PerspectiveController implements Observer {
     private final Perspective perspective;
     private final StackPane view;
@@ -25,21 +21,19 @@ public class PerspectiveController implements Observer {
     private final CommandManager commandManager = CommandManager.getInstance();
 
     /**
-     * Constructor for PerspectiveController.
      * @param perspective the Perspective to control
      */
     public PerspectiveController(Perspective perspective) {
         this.perspective = perspective;
         this.view = new StackPane();
         this.perspectiveView = new ImageView();
-        this.perspectiveView.setPreserveRatio(true); // Maintain image aspect ratio
+        this.perspectiveView.setPreserveRatio(true); 
         this.view.getChildren().add(perspectiveView);
-        this.perspective.addObserver(this); // Register as observer
+        this.perspective.addObserver(this); 
         initialize();
     }
 
     /**
-     * Get the view for the Perspective.
      * @return the StackPane containing the Perspective view
      */
     public StackPane getView() {
@@ -47,7 +41,6 @@ public class PerspectiveController implements Observer {
     }
 
     private void initialize() {
-        // Event handlers for panning
         perspectiveView.setOnMousePressed(event -> {
             dragStartX = event.getSceneX();
             dragStartY = event.getSceneY();
@@ -60,7 +53,6 @@ public class PerspectiveController implements Observer {
             dragStartX = event.getSceneX();
             dragStartY = event.getSceneY();
 
-            // Execute TranslateCommand to track the translation
             Command translateCommand = new TranslateCommand(perspective, offsetX, offsetY);
             translateCommand.execute();
             commandManager.addCommand(translateCommand);
@@ -70,10 +62,8 @@ public class PerspectiveController implements Observer {
             applyTranslation();
         });
 
-        // Event handler for zooming
         perspectiveView.setOnScroll(this::onScroll);
 
-        // Resize listener to adjust the clip and centering
         view.widthProperty().addListener((obs, oldVal, newVal) -> applyTranslation());
         view.heightProperty().addListener((obs, oldVal, newVal) -> applyTranslation());
     }
@@ -81,7 +71,6 @@ public class PerspectiveController implements Observer {
     private void onScroll(ScrollEvent e) {
         double zoomFactor = e.getDeltaY() > 0 ? 1.1 : 0.9;
 
-        // Execute ZoomCommand to track the zoom action
         double newScale = Math.max(0.1, Math.min(scale * zoomFactor, 5.0));
         Command zoomCommand = new ZoomCommand(perspective, newScale);
         zoomCommand.execute();
@@ -97,12 +86,8 @@ public class PerspectiveController implements Observer {
         perspectiveView.setTranslateY(translateY);
     }
 
-    /**
-     * Update the PerspectiveController based on changes in the Perspective.
-     */
     @Override
     public void update() {
-        // Update the view based on Perspective changes
         scale = perspective.getScaleFactor();
         translateX = perspective.getTranslation().getX();
         translateY = perspective.getTranslation().getY();
@@ -122,7 +107,6 @@ public class PerspectiveController implements Observer {
     }
 
     private void resetView() {
-        // Reset scale and translation
         scale = 1.0;
         translateX = 0;
         translateY = 0;

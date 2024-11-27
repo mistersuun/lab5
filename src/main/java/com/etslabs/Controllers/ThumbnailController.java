@@ -21,13 +21,9 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.shape.Rectangle;
-
-/**
- * Controller for handling the Thumbnail view.
- */
 public class ThumbnailController {
     private final ImageView thumbnailView = new ImageView();
-    private final Perspective perspective; // Dedicated perspective for this thumbnail
+    private final Perspective perspective; 
     private final CommandManager commandManager = CommandManager.getInstance();
     private double dragStartX, dragStartY;
 
@@ -108,11 +104,10 @@ public class ThumbnailController {
         thumbnailView.setOnMousePressed(event -> {
             dragStartX = event.getSceneX();
             dragStartY = event.getSceneY();
-            notifyActive(); // Set as active on mouse press
+            notifyActive(); 
         });
 
         thumbnailView.setOnMouseDragged(event -> {
-            // Update visual feedback while dragging
             double offsetX = event.getSceneX() - dragStartX;
             double offsetY = event.getSceneY() - dragStartY;
 
@@ -124,15 +119,14 @@ public class ThumbnailController {
         });
 
         thumbnailView.setOnMouseReleased(event -> {
-            // Commit the final position on drag release
             double offsetX = thumbnailView.getTranslateX();
             double offsetY = thumbnailView.getTranslateY();
 
             TranslateCommand translateCommand = new TranslateCommand(perspective, offsetX, offsetY);
             translateCommand.execute();
-            commandManager.executeCommand(translateCommand); // Updated to use executeCommand
+            commandManager.executeCommand(translateCommand); 
 
-            applyPerspectiveToThumbnail(); // Update thumbnail to reflect the final state
+            applyPerspectiveToThumbnail(); 
             System.out.println("Drag completed. Final translation applied: X=" + offsetX + ", Y=" + offsetY);
         });
     }
@@ -140,13 +134,13 @@ public class ThumbnailController {
     private void onScroll(ScrollEvent e) {
         double zoomFactor = e.getDeltaY() > 0 ? 1.1 : 0.9;
         executeZoomCommand(zoomFactor);
-        notifyActive(); // Set as active on scroll
+        notifyActive(); 
     }
 
     private void executeZoomCommand(double zoomFactor) {
         double newScaleFactor = Math.max(0.1, Math.min(perspective.getScaleFactor() * zoomFactor, 5.0));
         ZoomCommand zoomCommand = new ZoomCommand(perspective, newScaleFactor);
-        commandManager.executeCommand(zoomCommand); // Updated to use executeCommand
+        commandManager.executeCommand(zoomCommand); 
         applyPerspectiveToThumbnail();
     }
 
@@ -173,14 +167,14 @@ public class ThumbnailController {
     private void handlePaste() {
         if (clipboardImage.get() != null) {
             Image pastedImage = clipboardImage.get();
-            double pastedScaleFactor = clipboardScaleX.get(); // Assuming uniform scaling
+            double pastedScaleFactor = clipboardScaleX.get(); 
             Point pastedTranslation = new Point(
                 (int) clipboardTranslateX.get(),
                 (int) clipboardTranslateY.get()
             );
 
             PasteCommand pasteCommand = new PasteCommand(perspective, pastedImage, pastedScaleFactor, pastedTranslation);
-            commandManager.executeCommand(pasteCommand); // Updated to use executeCommand
+            commandManager.executeCommand(pasteCommand); 
             applyPerspectiveToThumbnail();
 
             System.out.println("Image and state pasted to thumbnail.");
@@ -191,18 +185,18 @@ public class ThumbnailController {
 
     public void undo() {
         commandManager.undo();
-        applyPerspectiveToThumbnail(); // Ensure the thumbnail reflects the undone state
+        applyPerspectiveToThumbnail();
     }
 
     public void redo() {
         commandManager.redo();
-        applyPerspectiveToThumbnail(); // Ensure the thumbnail reflects the redone state
+        applyPerspectiveToThumbnail(); 
     }
 
     public void updateImage(Image image) {
         thumbnailView.setImage(image);
-        perspective.setScaleFactor(1.0); // Reset zoom
-        perspective.setTranslation(new Point(0, 0)); // Reset translation
+        perspective.setScaleFactor(1.0);
+        perspective.setTranslation(new Point(0, 0));
         applyPerspectiveToThumbnail();
     }
 
