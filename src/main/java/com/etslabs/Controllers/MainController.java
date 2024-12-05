@@ -1,5 +1,6 @@
 package com.etslabs.Controllers;
 
+import java.awt.Point;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -14,14 +15,13 @@ import javafx.beans.property.DoubleProperty;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
-import javafx.geometry.Orientation;
 import javafx.scene.Scene;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
-import javafx.scene.control.Separator;
-import javafx.scene.control.SplitPane;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
@@ -37,12 +37,11 @@ public class MainController {
     private final DoubleProperty clipboardScaleY = new SimpleDoubleProperty(1.0);
     private final DoubleProperty clipboardTranslateX = new SimpleDoubleProperty(0.0);
     private final DoubleProperty clipboardTranslateY = new SimpleDoubleProperty(0.0);
-
-    // Controllers
     private PerspectiveController perspectiveController;
     private ThumbnailController thumbnailController1;
     private ThumbnailController thumbnailController2;
     private ThumbnailController activeThumbnailController;
+    private File currentImageFile;
 
     public MainController(Stage primaryStage) {
         this.primaryStage = primaryStage;
@@ -56,7 +55,6 @@ public class MainController {
     }
 
     private Scene createScene() {
-        // Create menu bar
         MenuBar menuBar = new MenuBar();
 
         Menu fileMenu = new Menu("File");
@@ -73,38 +71,46 @@ public class MainController {
 
         menuBar.getMenus().addAll(fileMenu, editMenu);
 
-        // Create perspective controller and view
         perspectiveController = new PerspectiveController(perspective);
 
         VBox perspectivePanel = new VBox(perspectiveController.getView());
+        perspectivePanel.setMinWidth(0);
         VBox.setVgrow(perspectivePanel, Priority.ALWAYS);
-        perspectivePanel.setStyle("-fx-border-width: 2; -fx-border-color: gray;");
 
-        // Create thumbnail controllers
         thumbnailController1 = createThumbnailController(true);
         thumbnailController2 = createThumbnailController(false);
 
         VBox thumbnail1Container = thumbnailController1.getThumbnailContainer(true);
         VBox thumbnail2Container = thumbnailController2.getThumbnailContainer(false);
 
-        VBox thumbnailContainer = new VBox(thumbnail1Container, new Separator(), thumbnail2Container);
+        thumbnail1Container.setMinWidth(0);
+        thumbnail2Container.setMinWidth(0);
         VBox.setVgrow(thumbnail1Container, Priority.ALWAYS);
         VBox.setVgrow(thumbnail2Container, Priority.ALWAYS);
-        thumbnailContainer.setStyle("-fx-border-width: 2; -fx-border-color: gray;");
 
-        SplitPane mainPane = new SplitPane();
-        mainPane.setOrientation(Orientation.HORIZONTAL);
-        mainPane.getItems().addAll(perspectivePanel, thumbnailContainer);
-        mainPane.setDividerPositions(0.7); // Adjusted divider position for better layout
+        HBox mainContainer = new HBox(perspectivePanel, thumbnail1Container, thumbnail2Container);
+        mainContainer.setMinWidth(0);
+        HBox.setHgrow(perspectivePanel, Priority.ALWAYS);
+        HBox.setHgrow(thumbnail1Container, Priority.ALWAYS);
+        HBox.setHgrow(thumbnail2Container, Priority.ALWAYS);
+
+        // Ensure each container takes exactly one-third of the width
+        perspectivePanel.prefWidthProperty().bind(mainContainer.widthProperty().divide(3));
+        thumbnail1Container.prefWidthProperty().bind(mainContainer.widthProperty().divide(3));
+        thumbnail2Container.prefWidthProperty().bind(mainContainer.widthProperty().divide(3));
+
+        // Ensure each container fills the height
+        perspectivePanel.prefHeightProperty().bind(mainContainer.heightProperty());
+        thumbnail1Container.prefHeightProperty().bind(mainContainer.heightProperty());
+        thumbnail2Container.prefHeightProperty().bind(mainContainer.heightProperty());
 
         BorderPane root = new BorderPane();
         root.setTop(menuBar);
-        root.setCenter(mainPane);
+        root.setCenter(mainContainer);
 
-        // Set up menu actions
         setupMenuActions(loadImage, saveState, loadState, removeImage, undo, redo);
 
-        return new Scene(root, 1200, 800); // Increased window size for better visibility
+        return new Scene(root, 900, 600);
     }
 
     private ThumbnailController createThumbnailController(boolean isFirst) {
@@ -116,13 +122,9 @@ public class MainController {
             clipboardTranslateX,
             clipboardTranslateY
         );
-
-        // Update active thumbnail on interaction
         thumbnailController.setOnActiveCallback(() -> {
             activeThumbnailController = thumbnailController;
-            System.out.println("Active thumbnail set to: " + (isFirst ? "Thumbnail 1" : "Thumbnail 2"));
         });
-
         return thumbnailController;
     }
 
@@ -133,22 +135,15 @@ public class MainController {
         loadState.setOnAction(e -> loadState());
         removeImage.setOnAction(e -> removeImage());
 
-        // Undo/Redo actions for the active thumbnail
         undo.setOnAction(e -> {
             if (activeThumbnailController != null) {
-                System.out.println("Undo triggered for active thumbnail.");
                 activeThumbnailController.undo();
-            } else {
-                System.out.println("No active thumbnail for undo.");
             }
         });
 
         redo.setOnAction(e -> {
             if (activeThumbnailController != null) {
-                System.out.println("Redo triggered for active thumbnail.");
                 activeThumbnailController.redo();
-            } else {
-                System.out.println("No active thumbnail for redo.");
             }
         });
     }
@@ -158,13 +153,11 @@ public class MainController {
         fileChooser.setTitle("Open Image File");
         File file = fileChooser.showOpenDialog(primaryStage);
         if (file != null) {
+            currentImageFile = file;
             imageModel.loadImageFromFile(file);
             perspectiveController.updateImage(imageModel.getImage());
             thumbnailController1.updateImage(imageModel.getImage());
             thumbnailController2.updateImage(imageModel.getImage());
-            System.out.println("Image loaded.");
-        } else {
-            System.out.println("No image selected.");
         }
     }
 
@@ -173,35 +166,80 @@ public class MainController {
         perspectiveController.updateImage(null);
         thumbnailController1.updateImage(null);
         thumbnailController2.updateImage(null);
-        System.out.println("Image removed.");
+        currentImageFile = null;
     }
 
     private void saveState() {
-        AppState appState = new AppState(
-            perspective.getScaleFactor(),
-            perspective.getTranslation().getX(),
-            perspective.getTranslation().getY(),
-            new java.awt.Point(perspective.getTranslation()) // Deep copy if needed
-        );
-        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream("app_state.ser"))) {
-            oos.writeObject(appState);
-            System.out.println("State saved successfully.");
-        } catch (Exception e) {
-            System.out.println("Failed to save state: " + e.getMessage());
-            e.printStackTrace();
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Save State");
+        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("State Files", "*.perspective"));
+        File file = fileChooser.showSaveDialog(primaryStage);
+        if (file != null) {
+            try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(file))) {
+                String imagePath = null;
+                if (currentImageFile != null) {
+                    imagePath = currentImageFile.getAbsolutePath();
+                }
+                oos.writeObject(imagePath);
+
+                ImageView thumbnailView1 = thumbnailController1.getThumbnailView();
+                AppState thumbnail1State = new AppState(
+                    thumbnailView1.getScaleX(),
+                    thumbnailView1.getTranslateX(),
+                    thumbnailView1.getTranslateY(),
+                    new Point((int) thumbnailView1.getTranslateX(), (int) thumbnailView1.getTranslateY())
+                );
+                oos.writeObject(thumbnail1State);
+
+                ImageView thumbnailView2 = thumbnailController2.getThumbnailView();
+                AppState thumbnail2State = new AppState(
+                    thumbnailView2.getScaleX(),
+                    thumbnailView2.getTranslateX(),
+                    thumbnailView2.getTranslateY(),
+                    new Point((int) thumbnailView2.getTranslateX(), (int) thumbnailView2.getTranslateY())
+                );
+                oos.writeObject(thumbnail2State);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
     }
 
     private void loadState() {
-        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream("app_state.ser"))) {
-            AppState appState = (AppState) ois.readObject();
-            perspective.setScaleFactor(appState.getScaleFactor());
-            perspective.setTranslation(appState.getTranslation());
-            // The Observer pattern will automatically update the views
-            System.out.println("State loaded successfully.");
-        } catch (Exception e) {
-            System.out.println("Failed to load state: " + e.getMessage());
-            e.printStackTrace();
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Load State");
+        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("State Files", "*.perspective"));
+        File file = fileChooser.showOpenDialog(primaryStage);
+        if (file != null) {
+            try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(file))) {
+                String imagePath = (String) ois.readObject();
+                AppState thumbnail1State = (AppState) ois.readObject();
+                AppState thumbnail2State = (AppState) ois.readObject();
+                if (imagePath != null) {
+                    File imageFile = new File(imagePath);
+                    if (imageFile.exists()) {
+                        currentImageFile = imageFile;
+                        imageModel.loadImageFromFile(imageFile);
+                        perspectiveController.updateImage(imageModel.getImage());
+                        thumbnailController1.updateImage(imageModel.getImage());
+                        thumbnailController2.updateImage(imageModel.getImage());
+                    }
+                }
+
+                ImageView thumbnailView1 = thumbnailController1.getThumbnailView();
+                thumbnailView1.setScaleX(thumbnail1State.getScaleFactor());
+                thumbnailView1.setScaleY(thumbnail1State.getScaleFactor());
+                thumbnailView1.setTranslateX(thumbnail1State.getTranslateX());
+                thumbnailView1.setTranslateY(thumbnail1State.getTranslateY());
+
+                ImageView thumbnailView2 = thumbnailController2.getThumbnailView();
+                thumbnailView2.setScaleX(thumbnail2State.getScaleFactor());
+                thumbnailView2.setScaleY(thumbnail2State.getScaleFactor());
+                thumbnailView2.setTranslateX(thumbnail2State.getTranslateX());
+                thumbnailView2.setTranslateY(thumbnail2State.getTranslateY());
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
     }
 }

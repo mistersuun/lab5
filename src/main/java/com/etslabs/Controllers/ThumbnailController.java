@@ -9,6 +9,7 @@ import com.etslabs.Commands.ZoomCommand;
 import com.etslabs.Models.ImageModel;
 import com.etslabs.Models.Perspective;
 
+import javafx.animation.PauseTransition; // Ajouté
 import javafx.beans.property.DoubleProperty;
 import javafx.beans.property.ObjectProperty;
 import javafx.scene.control.Button;
@@ -18,9 +19,12 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.shape.Rectangle;
+import javafx.util.Duration; // Ajouté
+
 public class ThumbnailController {
     private final ImageView thumbnailView = new ImageView();
     private final Perspective perspective; 
@@ -33,10 +37,16 @@ public class ThumbnailController {
     private final DoubleProperty clipboardTranslateX;
     private final DoubleProperty clipboardTranslateY;
 
+    // Variables pour regrouper les actions de zoom et drag
+    private PauseTransition pauseTransition; // Ajouté
+    private double cumulativeZoomFactor = 1.0; // Ajouté pour accumuler le zoom
+    private double cumulativeOffsetX = 0.0;    // Ajouté pour accumuler le déplacement en X
+    private double cumulativeOffsetY = 0.0;    // Ajouté pour accumuler le déplacement en Y
+
     public ThumbnailController(ImageModel imageModel,
-                                ObjectProperty<Image> clipboardImage,
-                                DoubleProperty clipboardScaleX, DoubleProperty clipboardScaleY,
-                                DoubleProperty clipboardTranslateX, DoubleProperty clipboardTranslateY) {
+                               ObjectProperty<Image> clipboardImage,
+                               DoubleProperty clipboardScaleX, DoubleProperty clipboardScaleY,
+                               DoubleProperty clipboardTranslateX, DoubleProperty clipboardTranslateY) {
         this.clipboardImage = clipboardImage;
         this.clipboardScaleX = clipboardScaleX;
         this.clipboardScaleY = clipboardScaleY;
@@ -50,12 +60,12 @@ public class ThumbnailController {
     public VBox getThumbnailContainer(boolean isFirstThumbnail) {
         thumbnailView.setPreserveRatio(true);
         thumbnailView.setFitWidth(400);
-        thumbnailView.setFitHeight(200);
+        thumbnailView.setFitHeight(500);
 
         StackPane thumbnailPane = new StackPane(thumbnailView);
-        thumbnailPane.setPrefSize(400, 200);
+        thumbnailPane.setPrefSize(400, 500);
 
-        Rectangle clip = new Rectangle(400, 200);
+        Rectangle clip = new Rectangle(400, 500);
         thumbnailPane.setClip(clip);
         thumbnailPane.setStyle("-fx-border-width: 1; -fx-border-color: black;");
 
@@ -81,15 +91,13 @@ public class ThumbnailController {
 
         copyItem.setOnAction(e -> handleCopy());
         pasteItem.setOnAction(e -> handlePaste());
-
         contextMenu.getItems().addAll(copyItem, pasteItem);
 
         thumbnailView.setOnContextMenuRequested(event -> {
             contextMenu.show(thumbnailView, event.getScreenX(), event.getScreenY());
         });
 
-        thumbnailView.setOnScroll(this::onScroll);
-
+        // Create the container
         VBox container = new VBox(10, thumbnailPane, buttonContainer);
         if (isFirstThumbnail) {
             container.setStyle("-fx-background-color: lightblue; -fx-padding: 10;");
@@ -97,44 +105,99 @@ public class ThumbnailController {
             container.setStyle("-fx-background-color: lightgreen; -fx-padding: 10;");
         }
 
+        // Allow the thumbnail pane to grow vertically to fill available space
+        VBox.setVgrow(thumbnailPane, Priority.ALWAYS);
+
+        // Attach scroll handler to the entire container instead of just the image
+        container.setOnScroll(this::onScroll);
+
         return container;
     }
 
     private void initialize() {
+        // Initialisation du PauseTransition pour regrouper les actions
+        pauseTransition = new PauseTransition(Duration.millis(300)); // Ajouté
+        pauseTransition.setOnFinished(event -> commitCommands()); // Ajouté
+
         thumbnailView.setOnMousePressed(event -> {
             dragStartX = event.getSceneX();
             dragStartY = event.getSceneY();
             notifyActive(); 
         });
 
+        // On accumule le déplacement au lieu de créer une commande immédiate
         thumbnailView.setOnMouseDragged(event -> {
             double offsetX = event.getSceneX() - dragStartX;
             double offsetY = event.getSceneY() - dragStartY;
 
+            dragStartX = event.getSceneX();
+            dragStartY = event.getSceneY();
+
+            // Accumulation du déplacement
+            cumulativeOffsetX += offsetX;
+            cumulativeOffsetY += offsetY;
+
+            // Mise à jour visuelle temporaire du déplacement
             thumbnailView.setTranslateX(thumbnailView.getTranslateX() + offsetX);
             thumbnailView.setTranslateY(thumbnailView.getTranslateY() + offsetY);
 
-            dragStartX = event.getSceneX();
-            dragStartY = event.getSceneY();
+            // Redémarrage du PauseTransition
+            pauseTransition.stop();
+            pauseTransition.playFromStart();
+
+            notifyActive();
         });
 
         thumbnailView.setOnMouseReleased(event -> {
-            double offsetX = thumbnailView.getTranslateX();
-            double offsetY = thumbnailView.getTranslateY();
+            System.out.println("Drag completed. Final translation applied: X=" 
+                               + thumbnailView.getTranslateX() 
+                               + ", Y=" + thumbnailView.getTranslateY());
 
-            TranslateCommand translateCommand = new TranslateCommand(perspective, offsetX, offsetY);
-            translateCommand.execute();
-            commandManager.executeCommand(translateCommand); 
-
-            applyPerspectiveToThumbnail(); 
-            System.out.println("Drag completed. Final translation applied: X=" + offsetX + ", Y=" + offsetY);
+            // Lâcher la souris signifie potentiellement la fin du drag
+            pauseTransition.stop();
+            pauseTransition.playFromStart();
         });
     }
 
     private void onScroll(ScrollEvent e) {
         double zoomFactor = e.getDeltaY() > 0 ? 1.1 : 0.9;
-        executeZoomCommand(zoomFactor);
+
+        // Accumuler le facteur de zoom au lieu d'exécuter immédiatement une commande
+        cumulativeZoomFactor *= zoomFactor;
+        System.out.println("Scrolled with zoomFactor: " + zoomFactor + ", cumulativeZoomFactor: " + cumulativeZoomFactor);
+
+        // Mise à jour visuelle temporaire du zoom
+        thumbnailView.setScaleX(perspective.getScaleFactor() * cumulativeZoomFactor);
+        thumbnailView.setScaleY(perspective.getScaleFactor() * cumulativeZoomFactor);
+
+        // Redémarrer le PauseTransition à chaque scroll
+        pauseTransition.stop();
+        pauseTransition.playFromStart();
+
         notifyActive(); 
+    }
+
+    // Méthode modifiée pour intégrer la logique de regroupement
+    private void commitCommands() { // Ajouté
+        // Créer une commande Zoom si on a zoomé
+        if (cumulativeZoomFactor != 1.0) {
+            double newScaleFactor = Math.max(0.1, Math.min(perspective.getScaleFactor() * cumulativeZoomFactor, 5.0));
+            System.out.println("Committing Zoom Command with factor: " + newScaleFactor);
+            ZoomCommand zoomCommand = new ZoomCommand(perspective, newScaleFactor);
+            commandManager.executeCommand(zoomCommand);
+            cumulativeZoomFactor = 1.0;
+            applyPerspectiveToThumbnail();
+        }
+
+        // Créer une commande Translate si on a déplacé
+        if (cumulativeOffsetX != 0.0 || cumulativeOffsetY != 0.0) {
+            System.out.println("Committing Translate Command with offsetX: " + cumulativeOffsetX + ", offsetY: " + cumulativeOffsetY);
+            TranslateCommand translateCommand = new TranslateCommand(perspective, cumulativeOffsetX, cumulativeOffsetY);
+            commandManager.executeCommand(translateCommand);
+            cumulativeOffsetX = 0.0;
+            cumulativeOffsetY = 0.0;
+            applyPerspectiveToThumbnail();
+        }
     }
 
     private void executeZoomCommand(double zoomFactor) {
@@ -184,11 +247,13 @@ public class ThumbnailController {
     }
 
     public void undo() {
+        System.out.println("Undo called.");
         commandManager.undo();
         applyPerspectiveToThumbnail();
     }
 
     public void redo() {
+        System.out.println("Redo called.");
         commandManager.redo();
         applyPerspectiveToThumbnail(); 
     }
